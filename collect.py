@@ -134,7 +134,7 @@ class Collect():
 					issue_list.append(issue_dict)
 
 
-					with open(args.org+"/"+repo_name+"/"+args.event_type+"/open_issues.json", 'w') as f:
+					with open(args.org+"/"+repo_name+"/"+args.event_type+"/"+args.org+"-"+repo_name+"-master_branch-issues.json", 'w') as f:
 						f.write(str(issue_list))
 			print("data successfully collected")
 		except Exception as e:
