@@ -95,6 +95,8 @@ class Collect():
 			self.collect_issues_comments(args)
 		if(args.event_type == 'commits'):
 			self.collect_commits(args)
+		if (args.event_type == 'events'):
+			self.collect_events(args)
 
 	def get_repo(self,args):
 		"""store all repository in a given organization as repo_list"""
@@ -191,7 +193,7 @@ class Collect():
 			print("Problem Occured: ", e)
 
 	def collect_issues_events(self, args):
-		pass
+
 
 	def collect_commits(self,args):
 		"""collect the data of the issue event in a given repository may be all repository or one repository"""
@@ -250,7 +252,37 @@ class Collect():
 			print("Problem Occured: ", e)
 
 	def collect_events(self, args):
-		pass
+		# call a get_repo function
+		repo_list = self.get_repo(args)
+		print(repo_list)
+		try:
+			for repo_name in repo_list:
+				repo = self.organization.get_repo(repo_name)
+				event_list = []
+				num_of_events = 0
+				for event in repo.get_events():
+					event_dict = {}
+					event_dict['actor'] = event.actor
+					event_dict['id'] = event.id
+					event_dict['payload'] = event.id
+					event_dict['created_at'] = event.created_at
+					event_dict['org'] = event.org
+					event_dict['public'] = event.public
+					event_dict['repo'] = event.repo
+					event_dict['type'] = event.type
+					event_list.append(event_dict)
+
+					num_of_events += 1
+					print(num_of_events)
+
+				# finalissue = "\n".join(str(row) for row in issue_list)
+				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+						  args.event_type + ".json", 'w') as f:
+					f.write(str(event_list))
+
+			print("data successfully collected")
+		except Exception as e:
+			print("Problem Occured: ", e)
 
 	def collect_pulls(self, args):
 		pass
