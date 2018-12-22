@@ -93,10 +93,16 @@ class Collect():
 			self.collect_issues(args)
 		if(args.event_type == 'issues_comments'):
 			self.collect_issues_comments(args)
-		if(args.event_type == 'commits'):
+		if (args.event_type == 'issues_events'):
+			self.collect_issues_events(args)
+		if (args.event_type == 'commits'):
 			self.collect_commits(args)
 		if (args.event_type == 'events'):
 			self.collect_events(args)
+		if(args.event_type == 'pullRequest'):
+			self.collect_pullRequests(args)
+		if (args.event_type == 'pullRequestComment'):
+			self.collect_pullRequestComments(args)
 
 	def get_repo(self,args):
 		"""store all repository in a given organization as repo_list"""
@@ -118,94 +124,86 @@ class Collect():
 
 		return branch_list
 
-	def collect_issues(self, args):
-		"""collect the data of the issue event in a given repository may be all repository or one repository"""
-		#call a get_repo function
+	def collect_issues_events(self, args):
 		repo_list = self.get_repo(args)
 		print(repo_list)
 		try:
 			for repo_name in repo_list:
 				repo = self.organization.get_repo(repo_name)
+				issues_events_list = []
+				num_of_issues_events = 0
+				for event in repo.get_issues_events():
+					event_dict = {}
+					event_dict['actor'] = event.actor
+					event_dict['commit_id'] = event.commit_id
+					event_dict['created_at'] = event.created_at
+					event_dict['event'] = event.event
+					event_dict['id'] = event.id
+					event_dict['issue'] = event.issue
+					event_dict['url'] = event.url
+					event_dict['node_id'] = event.node_id
+					event_dict['commit_url'] = event.commit_url
+					event_dict['label'] = event.label
+					event_dict['assignee'] = event.assignee
+					issues_events_list.append(event_dict)
 
-				issue_list = []
-				num_of_issue = 0
-				state='open'
-				print(repo.open_issues)
-				for issue in repo.get_issues(state=state):
-					issue_dict = {}
-					issue_dict['number'] = issue.number
-					issue_dict['id'] = issue.id
-					issue_dict['user'] = issue.user
-					issue_dict['title'] = issue.title
-					issue_dict['body'] = issue.body
-					issue_dict['url'] = issue.url
-					issue_dict['milestone'] = issue.milestone
-					issue_dict['labels'] = issue.labels
-					issue_dict['labels_url'] = issue.labels_url
-					issue_dict['created_at'] = issue.created_at
-					issue_dict['updated_at'] = issue.updated_at
-					issue_dict['closed_at'] = issue.closed_at
-					issue_dict['closed_by'] = issue.closed_by
-					issue_dict['pull_request'] = issue.pull_request
-					issue_dict['state'] = issue.state
-					issue_dict['events_url'] = issue.events_url
-					issue_dict['number_of_comments'] = issue.comments
-					issue_dict['comments_url'] = issue.comments_url
-					issue_list.append(issue_dict)
-
-					num_of_issue += 1
-					print(num_of_issue)
-
-				#finalissue = "\n".join(str(row) for row in issue_list)
-				with open(args.org+"/"+repo_name+"/"+args.event_type+"/"+args.org+"-"+repo_name+"-"+
-						  state+"-"+args.event_type+".json", 'w') as f:
-					f.write(str(issue_list))
-
-			print("data successfully collected")
-		except Exception as e:
-			print("Problem Occured: ", e)
-
-	def collect_issues_comments(self, args):
-		repo_list = self.get_repo(args)
-		print(repo_list)
-		try:
-			for repo_name in repo_list:
-				repo = self.organization.get_repo(repo_name)
-				issue_comment_list = []
-				num_of_issue_comments = 0
-				for comment in repo.get_issues_comments():
-					comment_dict = {}
-					comment_dict['id'] = comment.id
-					comment_dict['user'] = comment.user
-					comment_dict['body'] = comment.body
-					comment_dict['issue_url'] = comment.issue_url
-					issue_comment_list.append(comment_dict)
-
-					num_of_issue_comments += 1
-					print(num_of_issue_comments)
+					num_of_issues_events += 1
+					print(num_of_issues_events)
 
 				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						  args.event_type + ".json", 'w') as f:
-					f.write(str(issue_comment_list))
-
+                          args.event_type + ".json", 'w') as f:
+						f.write(str(issues_events_list))
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
 
-	def collect_issues_events(self, args):
+	def collect_pullRequests(self, args):
+		# call a get_repo function
+		repo_list = self.get_repo(args)
+		print(repo_list)
+		try:
+			for repo_name in repo_list:
+				repo = self.organization.get_(repo_name)
+				pull_list = []
+				num_of_pulls = 0
+				for pull in repo.get_pulls(state='all', sort='created', base='master'):
+					pull_dict = {}
+					pull_dict['id'] = pull.id
+					pull_dict['number'] = pull.number
+					pull_dict['title'] = pull.title
+					pull_dict['user'] = pull.user
+					pull_dict['body'] = pull.body
+					pull_dict['changed_files'] = pull.changed_files
+					pull_dict['closed_at'] = pull.closed_at
+					pull_dict['comments'] = pull.comments
+					pull_dict['commits'] = pull.commits
+					pull_dict['created_at'] = pull.created_at
+					pull_dict['review_comments'] = pull.review_comments
+					pull_list.append(pull_dict)
+					num_of_pulls += 1
+					print(num_of_pulls)
+				# finalissue = "\n".join(str(row) for row in issue_list)
+				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+						  args.event_type + ".json", 'w') as f:
+					f.write(str(pull_list))
+			print("data successfully collected")
+		except Exception as e:
+			print("Problem Occured: ", e)
 
+	def collect_pullRequestComments(self,args):
+		pass
 
-	def collect_commits(self,args):
+	def collect_commits(self, args):
 		"""collect the data of the issue event in a given repository may be all repository or one repository"""
-		#call a get_repo function
+		# call a get_repo function
 		repo_list = self.get_repo(args)
 		print(repo_list)
 		try:
 			for repo_name in repo_list:
 				repo = self.organization.get_repo(repo_name)
-				#branch_list = self.get_branch(repo_name, args)
-				#for branch_name in branch_list:
-				#branch = self.organization.get_repo(repo_name).get_branch(branch_name)
+				# branch_list = self.get_branch(repo_name, args)
+				# for branch_name in branch_list:
+				# branch = self.organization.get_repo(repo_name).get_branch(branch_name)
 				commit_list = []
 				num_of_commits = 0
 				num_of_page = 0
@@ -214,14 +212,14 @@ class Collect():
 					commit_dict = {}
 					commit_dict['author'] = commit.author
 					commit_dict['sha'] = commit.sha
-					#commit_dict['files'] = commit.files
-					#commit_dict['commit'] = commit.commit
-					#commit_dict['committer'] = commit.committer
-					#commit_dict['comments_url'] = commit.comments_url
-					#commit_dict['html_url'] = commit.html_url
-					#commit_dict['parents'] = commit.parents
-					#commit_dict['stats'] = commit.stats
-					#commit_dict['url'] = commit.url
+					# commit_dict['files'] = commit.files
+					# commit_dict['commit'] = commit.commit
+					# commit_dict['committer'] = commit.committer
+					# commit_dict['comments_url'] = commit.comments_url
+					# commit_dict['html_url'] = commit.html_url
+					# commit_dict['parents'] = commit.parents
+					# commit_dict['stats'] = commit.stats
+					# commit_dict['url'] = commit.url
 					commit_list.append(commit_dict)
 
 					num_of_commits += 1
@@ -230,26 +228,29 @@ class Collect():
 					# since it won't store the file if the request become more than one thousand lets divide into page with 1000
 
 					"""
-					if num_of_commits % 100 == 0:
-						num_of_page = num_of_page + 1
-						page_list.append(str(num_of_page))
-						#finalcommit = "\n".join(str(row) for row in commit_list)
-						with open(
-								args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" +
-								repo_name + "-master_branch-" + args.event_type + "-page-" + str(
-								num_of_page) + ".json",
-								'w') as f:
-							#f.write(finalcommit)
-							f.write(str(commit_list))
-						commit_list = []
-					if num_of_page >= 4:
-						break
-					
-					"""
+                    if num_of_commits % 100 == 0:
+                        num_of_page = num_of_page + 1
+                        page_list.append(str(num_of_page))
+                        #finalcommit = "\n".join(str(row) for row in commit_list)
+                        with open(
+                                args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" +
+                                repo_name + "-master_branch-" + args.event_type + "-page-" + str(
+                                num_of_page) + ".json",
+                                'w') as f:
+                            #f.write(finalcommit)
+                            f.write(str(commit_list))
+                        commit_list = []
+                    if num_of_page >= 4:
+                        break
+
+                    """
 
 			print("commit data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
+
+	def collect_commits_comments(self, args):
+		pass
 
 	def collect_events(self, args):
 		# call a get_repo function
@@ -279,17 +280,87 @@ class Collect():
 				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
 						  args.event_type + ".json", 'w') as f:
 					f.write(str(event_list))
+			print("data successfully collected")
+		except Exception as e:
+			print("Problem Occured: ", e)
+
+	def collect_issues_comments(self, args):
+		repo_list = self.get_repo(args)
+		print(repo_list)
+		try:
+			for repo_name in repo_list:
+				repo = self.organization.get_repo(repo_name)
+				issue_comment_list = []
+				num_of_issue_comments = 0
+				for comment in repo.get_issues_comments():
+					comment_dict = {}
+					comment_dict['id'] = comment.id
+					comment_dict['user'] = comment.user
+					comment_dict['body'] = comment.body
+					comment_dict['issue_url'] = comment.issue_url
+					issue_comment_list.append(comment_dict)
+
+					num_of_issue_comments += 1
+					print(num_of_issue_comments)
+
+				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+						  args.event_type + ".json", 'w') as f:
+					f.write(str(issue_comment_list))
+
+			print("data successfully collected")
+		except Exception as e:
+			print("Problem occured:", e)
+
+	def collect_issues_pullRequest(self, args):
+		pass
+
+	def collect_issues(self, args):
+		"""collect the data of the issue event in a given repository may be all repository or one repository"""
+		# call a get_repo function
+		repo_list = self.get_repo(args)
+		print(repo_list)
+		try:
+			for repo_name in repo_list:
+				repo = self.organization.get_repo(repo_name)
+
+				issue_list = []
+				num_of_issue = 0
+				state = 'open'
+				print(repo.open_issues)
+				for issue in repo.get_issues(state=state):
+					issue_dict = {}
+					issue_dict['number'] = issue.number
+					issue_dict['id'] = issue.id
+					issue_dict['user'] = issue.user
+					issue_dict['title'] = issue.title
+					issue_dict['body'] = issue.body
+					issue_dict['url'] = issue.url
+					issue_dict['milestone'] = issue.milestone
+					issue_dict['labels'] = issue.labels
+					issue_dict['labels_url'] = issue.labels_url
+					issue_dict['created_at'] = issue.created_at
+					issue_dict['updated_at'] = issue.updated_at
+					issue_dict['closed_at'] = issue.closed_at
+					issue_dict['closed_by'] = issue.closed_by
+					issue_dict['pull_request'] = issue.pull_request
+					issue_dict['state'] = issue.state
+					issue_dict['events_url'] = issue.events_url
+					issue_dict['number_of_comments'] = issue.comments
+					issue_dict['comments_url'] = issue.comments_url
+					issue_list.append(issue_dict)
+
+					num_of_issue += 1
+					print(num_of_issue)
+
+				# finalissue = "\n".join(str(row) for row in issue_list)
+				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+						  state + "-" + args.event_type + ".json", 'w') as f:
+					f.write(str(issue_list))
 
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
 
-	def collect_pulls(self, args):
-		pass
-
-	def collect_pulls_comments(self,args):
-		pass
-	
 	def main(self):
 		# get the arguments from the terminal
 		args = self.get_arguments()
