@@ -31,12 +31,14 @@ class Collect():
 
 	def validate_arguments(self, args):
 		"""Validate arguments entered by user"""
-		if args.user == None:
-			print('Please specify your github user name. Exiting.')
-			sys.exit(0)
-		if args.pwd == None:
-			print('Please specify your password. Exiting.')
-			sys.exit(0)
+
+		if args.token == None:
+			if args.user == None:
+				print('Please specify your github user name. Exiting.')
+				sys.exit(0)
+			if args.pwd == None:
+				print('Please specify your password. Exiting.')
+				sys.exit(0)
 		if args.org == None:
 			print('Please specify Organization name. Exiting.')
 			sys.exit(0)
@@ -49,19 +51,18 @@ class Collect():
 
 		return
 
-	def identify_event(self,args):
-		"""identify the type of event given by the user"""
-		if(args.event_type == 'issues'):
-			self.collect_issues(args)
-		if(args.event_type == 'issue_comments'):
-			self.collect_issue_comments(args)
-		if(args.event_type == 'commits'):
-			self.collect_commits(args)
+	def create_github_instance(self, args):
+		if args.token == None:
+			self.client = Github(args.user, args.pwd, per_page=args.per_page)
+		else:
+			#client = Github(args.token, per_page=args.per_page)
+			#self.client = Github(args.user, args.pwd, per_page=args.per_page)
+			self.client = Github(args.user, login_or_token=args.token, per_page=args.per_page)
+
+		self.organization = self.client.get_organization(args.org)
 
 	def create_directory(self,args):
 		"""Create a directory for organization, for each repository in organization, for each event type in repository"""
-		client = Github(args.user, args.pwd, per_page=args.per_page)
-		orgn = client.get_organization(args.org)
 
 		# 1... create a directory for this organization
 		if not os.path.exists(args.org):
@@ -72,7 +73,7 @@ class Collect():
 		# get repository
 		repo_list = []
 		if (args.repo == 'all'):
-			repo_list = [repo.name for repo in orgn.get_repos()]
+			repo_list = [repo.name for repo in self.organization.get_repos()]
 		else:
 			repo_list = [args.repo]
 
@@ -85,6 +86,15 @@ class Collect():
 		for repo_name in repo_list:
 			if not os.path.exists(args.org+"/"+repo_name+"/"+args.event_type):
 				os.mkdir(args.org+"/"+repo_name+"/"+args.event_type)
+
+	def identify_event(self,args):
+		"""identify the type of event given by the user"""
+		if(args.event_type == 'issues'):
+			self.collect_issues(args)
+		if(args.event_type == 'issues_comments'):
+			self.collect_issues_comments(args)
+		if(args.event_type == 'commits'):
+			self.collect_commits(args)
 
 	def get_repo(self,args):
 		"""store all repository in a given organization as repo_list"""
@@ -108,14 +118,18 @@ class Collect():
 
 	def collect_issues(self, args):
 		"""collect the data of the issue event in a given repository may be all repository or one repository"""
-
 		#call a get_repo function
 		repo_list = self.get_repo(args)
+		print(repo_list)
 		try:
 			for repo_name in repo_list:
 				repo = self.organization.get_repo(repo_name)
+
 				issue_list = []
-				for issue in repo.get_issues(state='all'):
+				num_of_issue = 0
+				state='open'
+				print(repo.open_issues)
+				for issue in repo.get_issues(state=state):
 					issue_dict = {}
 					issue_dict['number'] = issue.number
 					issue_dict['id'] = issue.id
@@ -137,21 +151,50 @@ class Collect():
 					issue_dict['comments_url'] = issue.comments_url
 					issue_list.append(issue_dict)
 
-				finalissue = "\n".join(str(row) for row in issue_list)
+					num_of_issue += 1
+					print(num_of_issue)
+
+				#finalissue = "\n".join(str(row) for row in issue_list)
 				with open(args.org+"/"+repo_name+"/"+args.event_type+"/"+args.org+"-"+repo_name+"-"+
-						  "-"+args.event_type+".json", 'w') as f:
-					f.write(finalissue)
+						  state+"-"+args.event_type+".json", 'w') as f:
+					f.write(str(issue_list))
 
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
 
-	def collect_issue_comments(self, args):
-			pass
+	def collect_issues_comments(self, args):
+		repo_list = self.get_repo(args)
+		print(repo_list)
+		try:
+			for repo_name in repo_list:
+				repo = self.organization.get_repo(repo_name)
+				issue_comment_list = []
+				num_of_issue_comments = 0
+				for comment in repo.get_issues_comments():
+					comment_dict = {}
+					comment_dict['id'] = comment.id
+					comment_dict['user'] = comment.user
+					comment_dict['body'] = comment.body
+					comment_dict['issue_url'] = comment.issue_url
+					issue_comment_list.append(comment_dict)
+
+					num_of_issue_comments += 1
+					print(num_of_issue_comments)
+
+				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+						  args.event_type + ".json", 'w') as f:
+					f.write(str(issue_comment_list))
+
+			print("data successfully collected")
+		except Exception as e:
+			print("Problem Occured: ", e)
+
+	def collect_issues_events(self, args):
+		pass
 
 	def collect_commits(self,args):
 		"""collect the data of the issue event in a given repository may be all repository or one repository"""
-
 		#call a get_repo function
 		repo_list = self.get_repo(args)
 		print(repo_list)
@@ -178,29 +221,43 @@ class Collect():
 					#commit_dict['stats'] = commit.stats
 					#commit_dict['url'] = commit.url
 					commit_list.append(commit_dict)
-					num_of_commits = num_of_commits + 1
+
+					num_of_commits += 1
 					print(num_of_commits)
 					print(num_of_page)
 					# since it won't store the file if the request become more than one thousand lets divide into page with 1000
+
+					"""
 					if num_of_commits % 100 == 0:
 						num_of_page = num_of_page + 1
 						page_list.append(str(num_of_page))
-						finalcommit = "\n".join(str(row) for row in commit_list)
+						#finalcommit = "\n".join(str(row) for row in commit_list)
 						with open(
 								args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" +
 								repo_name + "-master_branch-" + args.event_type + "-page-" + str(
 								num_of_page) + ".json",
 								'w') as f:
-							f.write(finalcommit)
+							#f.write(finalcommit)
+							f.write(str(commit_list))
 						commit_list = []
-					if num_of_page >= 10:
+					if num_of_page >= 4:
 						break
-
+					
+					"""
 
 			print("commit data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
 
+	def collect_events(self, args):
+		pass
+
+	def collect_pulls(self, args):
+		pass
+
+	def collect_pulls_comments(self,args):
+		pass
+	
 	def main(self):
 		# get the arguments from the terminal
 		args = self.get_arguments()
@@ -208,8 +265,8 @@ class Collect():
 		# validate the given arguments
 		self.validate_arguments(args)
 
-		self.client =  Github(args.user,args.pwd, per_page=args.per_page)
-		self.organization = self.client.get_organization(args.org)
+		# then create a github instance
+		self.create_github_instance(args)
 
 		# then call a create directory function
 		self.create_directory(args)
