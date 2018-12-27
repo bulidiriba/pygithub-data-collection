@@ -3,7 +3,8 @@ from github import Github
 import argparse
 import sys
 import os
-from datetime import datetime
+import time
+import random
 
 
 class Collect():
@@ -19,6 +20,8 @@ class Collect():
 		self.client=''
 		self.organization=''
 		self.state=''
+		self.sleep_time_length = 1 #5
+		self.sleep_time_range = 1 #3
 		self.issues_parameter = ['number', 'id', 'user', 'title', 'body']
 
 
@@ -120,7 +123,7 @@ class Collect():
 			self.collect_pullRequests(args)
 		if (args.event_type == 'pullRequestComments'):
 			self.collect_pullRequestComments(args)
-
+    
 	def get_repo(self,args):
 		"""store all repository in a given organization as repo_list"""
 
@@ -266,7 +269,7 @@ class Collect():
 					#print(repo.get_commits().get_page(rel='last'))
 					page = 0
 					num_of_commits = 0
-					while page <= total_page:
+					while page <= 5:#just for testing but actually its till last page
 						commit_list = []
 						print("page: ", page)
 						
@@ -287,15 +290,17 @@ class Collect():
 							num_of_commits += 1
 							print(num_of_commits)
 
-						print(commit_list)
+                        
 
+						self.sleeper()
+						print(commit_list)
 						with open(args.org + "/" + repo_name+"/"+args.event_type+"/"+branch+"_branch/" +  args.org + "-" +
 					 		repo_name + "-"+branch+"_branch-" + args.event_type + "-page-" + str(page) + ".json", 'w') as f:
 							f.write(str(commit_list))
-					
+
+
 						page += 1
 						commit_list = []
-
 			print("commit data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
@@ -404,6 +409,8 @@ class Collect():
 						  args.state + "-" + args.event_type + ".json", 'w') as f:
 					f.write(str(issue_list))
 
+				self.sleeper()
+
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
@@ -434,6 +441,14 @@ class Collect():
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
+
+
+	def sleeper(self):
+        # add sleeping time after requesting each page
+		sleep_time = self.sleep_time_length + self.sleep_time_range * random.random()
+		print("\n\tSleeping for", sleep_time, "seconds.")
+		time.sleep(sleep_time)
+
 
 	def main(self):
 		# get the arguments from the terminal
