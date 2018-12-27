@@ -18,6 +18,7 @@ class Collect():
 		self.per_page=100
 		self.client=''
 		self.organization=''
+		self.state=''
 		self.issues_parameter = ['number', 'id', 'user', 'title', 'body']
 
 
@@ -29,6 +30,7 @@ class Collect():
 		parser.add_argument('--org', type=str,  help="The name of the Organization")
 		parser.add_argument('--repo', type=str,  help="The name of the Repositories")
 		parser.add_argument('--branch',  type=str, help="The name of the branches")
+		parser.add_argument('--state',  type=str, help="The State of the issues")
 		parser.add_argument('--event_type', type=str, help="The type of the events(e.g issues, commits")
 		parser.add_argument('--per_page', default=self.per_page,  type=int, help="The number of per_page requests")
 		return parser.parse_args()
@@ -36,15 +38,11 @@ class Collect():
 	def validate_arguments(self, args):
 		"""Validate arguments entered by user"""
 
-		if args.token == None:
-			if args.user == None:
-				print('Please specify your github user name. Exiting.')
-				sys.exit(0)
-			if args.pwd == None:
-				print('Please specify your password. Exiting.')
-				sys.exit(0)
 		if args.org == None:
 			print('Please specify Organization name. Exiting.')
+			sys.exit(0)
+		if args.repo == None:
+			print('Please specify Repositories name. Exiting.')
 			sys.exit(0)
 		if args.event_type == None:
 			print('Please specify type of the event. Exiting.')
@@ -56,14 +54,19 @@ class Collect():
 		return
 
 	def create_github_instance(self, args):
-		if args.token == None:
-			self.client = Github(args.user, args.pwd, per_page=args.per_page)
-		else:
+		if args.token != None:
 			#client = Github(args.token, per_page=args.per_page)
 			#self.client = Github(args.user, args.pwd, per_page=args.per_page)
 			self.client = Github(args.user, login_or_token=args.token, per_page=args.per_page)
+			
+		elif args.user != None and args.pwd != None:
+			self.client = Github(args.user, args.pwd, per_page=args.per_page)
+
+		else:
+			self.client = Github()		
 
 		self.organization = self.client.get_organization(args.org)
+
 
 	def create_directory(self,args):
 		"""Create a directory for organization, for each repository in organization, for each event type in repository"""
@@ -133,6 +136,7 @@ class Collect():
 		branch_list =[]
 		if(args.branch == 'all'):
 			branch_list = [branch.name for branch in self.organization.get_repo(repo_name).get_branches()]
+
 		else:
 			branch_list = [args.branch]
 
@@ -241,59 +245,57 @@ class Collect():
 		"""collect the data of the issue event in a given repository may be all repository or one repository"""
 		# call a get_repo function
 		repo_list = self.get_repo(args)
-		print(repo_list)
+		print("\nRepositories: ", repo_list)
 		try:
 			for repo_name in repo_list:
 				repo = self.organization.get_repo(repo_name)
 				branch_list = self.get_branch(repo_name, args)
-				#branch_list = self.organization.get_repo(repo_name).get_branches()
+				print("branches: ", branch_list)
 				
-				print(branch_list)
-				for branch_name in branch_list:
-					branch = self.organization.get_repo(repo_name).get_branch(branch_name)
-					print(branch)
-					lastcommit = branch.commit
-					print(lastcommit)
+				for branch in branch_list:
+					git_branch = self.organization.get_repo(repo_name).get_branch(branch)
+					branch_commit = git_branch.commit
+	
+					total_commits = repo.get_commits(sha=branch_commit.sha).totalCount
+					print("total commits in ",branch," branch is: ", total_commits)
+
+					# since there are 100 commits in a single page we can easily get the total number of page by dividing the total commits with 100
+					total_page =  int(total_commits / 100)
+					print("The total number of page is: " + str(total_page))
+
+					#print(repo.get_commits().get_page(rel='last'))
+					page = 0
+					num_of_commits = 0
+					while page <= total_page:
+						commit_list = []
+						print("page: ", page)
+						
+						for commit in repo.get_commits(sha=branch_commit.sha).get_page(page):
+							commit_dict = {}
+							commit_dict['author'] = commit.author
+							commit_dict['sha'] = commit.sha
+							#commit_dict['files'] = commit.files
+							#commit_dict['stats'] = commit.stats
+							# commit_dict['commit'] = commit.commit
+							# commit_dict['committer'] = commit.committer
+							# commit_dict['comments_url'] = commit.comments_url
+							# commit_dict['html_url'] = commit.html_url
+							# commit_dict['parents'] = commit.parents
+							# commit_dict['url'] = commit.url
+							commit_list.append(commit_dict)
+
+							num_of_commits += 1
+							print(num_of_commits)
+
+						print(commit_list)
+
+						with open(args.org + "/" + repo_name+"/"+args.event_type+"/"+branch+"_branch/" +  args.org + "-" +
+					 		repo_name + "-"+branch+"_branch-" + args.event_type + "-page-" + str(page) + ".json", 'w') as f:
+							f.write(str(commit_list))
 					
-				
+						page += 1
+						commit_list = []
 
-				
-				#since = datetime(2014, 1, 1)
-				#print(self.organization.get_repos().totalCount)
-				#print("The total number of commits found in: " + repo_name +"is: " + str(repo.get_commits().totalCount))
-
-				total_commits = repo.get_commits().totalCount
-				print("The total number of commits found in: " + repo_name +"is: " + str(total_commits))
-
-				# since there are 100 commits in a single page we can easily get the total number of page by dividing the total commits with 100
-				total_page =  int(total_commits / 100)
-				print("The total number of page is: " + str(total_page))
-
-				#print(repo.get_commits().get_page(rel='last'))
-
-				page = 0
-				while page <= total_page: # actually this is until total_page
-					commit_list = []	
-					for commit in repo.get_commits().get_page(page):
-						commit_dict = {}
-						commit_dict['author'] = commit.author
-						commit_dict['sha'] = commit.sha
-						# commit_dict['files'] = commit.files
-						# commit_dict['commit'] = commit.commit
-						# commit_dict['committer'] = commit.committer
-						# commit_dict['comments_url'] = commit.comments_url
-						# commit_dict['html_url'] = commit.html_url
-						# commit_dict['parents'] = commit.parents
-						# commit_dict['stats'] = commit.stats
-						# commit_dict['url'] = commit.url
-						commit_list.append(commit_dict)
-					
-					with open(args.org + "/" + repo_name + "/" + args.event_type + "/master_branch/" +  args.org + "-" +
-					 repo_name + "-master_branch-" + args.event_type + "-page-" + str(page) + ".json", 'w') as f:
-						f.write(str(commit_list))
-
-					page += 1
-					commit_list = []
 			print("commit data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
@@ -371,9 +373,8 @@ class Collect():
 
 				issue_list = []
 				num_of_issue = 0
-				state = 'open'
-				print(repo.open_issues)
-				for issue in repo.get_issues(state=state):
+				print("total number of " + args.state + " issue is: ", repo.get_issues(state=args.state).totalCount)
+				for issue in repo.get_issues(state=args.state):
 					issue_dict = {}
 					issue_dict['number'] = issue.number
 					issue_dict['id'] = issue.id
@@ -396,11 +397,11 @@ class Collect():
 					issue_list.append(issue_dict)
 
 					num_of_issue += 1
-					print(num_of_issue)
+					print(args.state + "issue: ", num_of_issue)
 
 				# finalissue = "\n".join(str(row) for row in issue_list)
 				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						  state + "-" + args.event_type + ".json", 'w') as f:
+						  args.state + "-" + args.event_type + ".json", 'w') as f:
 					f.write(str(issue_list))
 
 			print("data successfully collected")
