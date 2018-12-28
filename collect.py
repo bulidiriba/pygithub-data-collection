@@ -22,8 +22,6 @@ class Collect():
 		self.state=''
 		self.sleep_time_length = 1 #5
 		self.sleep_time_range = 1 #3
-		self.issues_parameter = ['number', 'id', 'user', 'title', 'body']
-
 
 	def get_arguments(self):
 		parser = argparse.ArgumentParser(description="Github data collection with PyGithub")
@@ -40,7 +38,6 @@ class Collect():
 
 	def validate_arguments(self, args):
 		"""Validate arguments entered by user"""
-
 		if args.org == None:
 			print('Please specify Organization name. Exiting.')
 			sys.exit(0)
@@ -53,7 +50,13 @@ class Collect():
 		if args.event_type == 'commits' and args.branch == None:
 			print('Please specify branch name. Exiting.')
 			sys.exit(0)
-
+		if args.event_type == 'issues' and args.state == None:
+			print('Please specify state of the issues. Exiting.')
+			sys.exit(0)
+		if args.event_type == 'pullRequests' and args.branch == None and args.state == None:
+			print('Please specify branch and state of the pulls. Exiting.')
+			sys.exit(0)
+			
 		return
 
 	def create_github_instance(self, args):
@@ -70,17 +73,14 @@ class Collect():
 
 		self.organization = self.client.get_organization(args.org)
 
-
 	def create_directory(self,args):
 		"""Create a directory for organization, for each repository in organization, for each event type in repository"""
-
 		# 1... create a directory for this organization
 		if not os.path.exists(args.org):
 			os.mkdir(args.org)
-
 		# 2... create directory for each repository of an organization
-
 		# get repository
+
 		repo_list = []
 		if (args.repo == 'all'):
 			repo_list = [repo.name for repo in self.organization.get_repos()]
@@ -106,9 +106,7 @@ class Collect():
 	def identify_event(self,args):
 		"""identify the type of event given by the user"""
 		if(args.event_type == 'issues'):
-			array_of_parameter = ['number', 'id', 'user', 'title', 'body']
 			self.collect_issues(args)
-			#self.collect_event(array_of_parameter)
 		if(args.event_type == 'issues_comments'):
 			self.collect_issues_comments(args)
 		if (args.event_type == 'issues_events'):
@@ -117,8 +115,6 @@ class Collect():
 			self.collect_commits(args)
 		if (args.event_type == 'events'):
 			self.collect_events(args)
-		if (args.event_type == 'projects'):
-			self.get_projects(args)
 		if(args.event_type == 'pullRequests'):
 			self.collect_pullRequests(args)
 		if (args.event_type == 'pullRequestComments'):
@@ -126,7 +122,6 @@ class Collect():
     
 	def get_repo(self,args):
 		"""store all repository in a given organization as repo_list"""
-
 		repo_list=[]
 		if(args.repo == 'all'):
 			repo_list = [repo.name for repo in self.organization.get_repos()]
@@ -145,13 +140,6 @@ class Collect():
 
 		return branch_list
 
-	def get_projects(self, args):
-		project_list=[]
-		project_list = [project.name for project in self.organization.get_projects()]
-		print(project_list)
-
-		return project_list
-   	
 	def collect_issues_events(self, args):
 		repo_list = self.get_repo(args)
 		print(repo_list)
@@ -178,6 +166,8 @@ class Collect():
 					num_of_issues_events += 1
 					print(num_of_issues_events)
 
+				self.sleeper()
+				print(issues_events_list)
 				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
                           args.event_type + ".json", 'w') as f:
 						f.write(str(issues_events_list))
@@ -192,28 +182,49 @@ class Collect():
 		try:
 			for repo_name in repo_list:
 				repo = self.organization.get_repo(repo_name)
-				pull_list = []
-				num_of_pulls = 0
-				for pull in repo.get_pulls(state='all', sort='created', base='master'):
-					pull_dict = {}
-					pull_dict['id'] = pull.id
-					pull_dict['number'] = pull.number
-					pull_dict['title'] = pull.title
-					pull_dict['user'] = pull.user
-					pull_dict['body'] = pull.body
-					pull_dict['changed_files'] = pull.changed_files
-					pull_dict['closed_at'] = pull.closed_at
-					pull_dict['comments'] = pull.comments
-					pull_dict['commits'] = pull.commits
-					pull_dict['created_at'] = pull.created_at
-					pull_dict['review_comments'] = pull.review_comments
-					pull_list.append(pull_dict)
-					num_of_pulls += 1
-					print(num_of_pulls)
-				# finalissue = "\n".join(str(row) for row in issue_list)
-				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						  args.event_type + ".json", 'w') as f:
-					f.write(str(pull_list))
+				branch_list = self.get_branch(repo_name, args)
+				print("branches: ", branch_list)
+				for branch in branch_list:
+				    pull_list = []
+				    num_of_pulls = 0
+				    for pull in repo.get_pulls(state=args.state, sort='created', base=branch):
+					    pull_dict = {}
+					    pull_dict['id'] = pull.id
+					    pull_dict['number'] = pull.number
+					    pull_dict['title'] = pull.title
+					    pull_dict['user'] = pull.user
+					    pull_dict['body'] = pull.body
+					    pull_dict['changed_files'] = pull.changed_files
+					    pull_dict['closed_at'] = pull.closed_at
+					    pull_dict['comments'] = pull.comments
+					    pull_dict['commits'] = pull.commits
+					    pull_dict['created_at'] = pull.created_at
+					    pull_dict['commits_url'] = pull.commits_url
+					    pull_dict['review_comments'] = pull.review_comments
+					    pull_dict['head'] = pull.head
+					    pull_dict['merged'] = pull.merged
+					    pull_dict['merged_at'] = pull.merged_at
+					    pull_dict['merged_by'] = pull.merged_by
+					    pull_dict['milestone'] = pull.milestone
+					    pull_dict['merge_commit_sha'] = pull.merge_commit_sha
+					    pull_dict['mergeable'] = pull.mergeable
+					    pull_dict['mergeable_state'] = pull.mergeable_state
+					    pull_dict['labels'] = pull.labels
+					    pull_dict['deletions'] = pull.deletions
+					    pull_dict['additions'] = pull.additions
+					    pull_dict['commit_url'] = pull.commits_url
+					    pull_dict['assignee'] = pull.assignee
+					    pull_dict['assignees'] = pull.assignees
+					    pull_dict['base'] = pull.base
+					    pull_list.append(pull_dict)
+					    num_of_pulls += 1
+					    print(num_of_pulls)
+
+				    self.sleeper()
+				    print(pull_list)
+				    with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+						        branch + "-" + args.state + "-" + args.event_type + ".json", 'w') as f:
+					      f.write(str(pull_list))
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
@@ -233,6 +244,12 @@ class Collect():
 				    pull_dict['user'] = pull.user
 				    pull_dict['body'] = pull.body
 				    pull_dict['created_at'] = pull.created_at
+				    pull_dict['commit_id'] = pull.commit_id
+				    pull_dict['created_at'] = pull.created_at
+				    pull_dict['diff_hunk'] = pull.diff_hunk
+				    pull_dict['in_reply_to_id'] = pull.in_reply_to_id
+				    pull_dict['pull_request_url'] = pull.pull_request_url
+
 				    pull_list.append(pull_dict)
 				    num_of_pulls += 1
 				    print(num_of_pulls)
@@ -415,42 +432,14 @@ class Collect():
 		except Exception as e:
 			print("Problem Occured: ", e)
 
-	def collect_event(self, args):
-		# call a get_repo function
-		repo_list = self.get_repo(args)
-		print(repo_list)
-		try:
-			for repo_name in repo_list:
-				repo = self.organization.get_repo(repo_name)
-				event_list = []
-				num_of_event = 0
-				#print(repo.open_issues)
-				a = "get_"+str(args.event_type)
-				for event in repo.a:#how can I pass this variables
-					event_dict = {}
-					for paramater in self.args.event_type+"_parameter":
-						event_dict[paramater] = event.paramater
-					event_list.append(event_dict)
-
-					num_of_event += 1
-					print(num_of_event)
-				# finalissue = "\n".join(str(row) for row in issue_list)
-				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						    args.event_type + ".json", 'w') as f:
-					f.write(str(event_list))
-			print("data successfully collected")
-		except Exception as e:
-			print("Problem Occured: ", e)
-
-
 	def sleeper(self):
         # add sleeping time after requesting each page
 		sleep_time = self.sleep_time_length + self.sleep_time_range * random.random()
 		print("\n\tSleeping for", sleep_time, "seconds.")
 		time.sleep(sleep_time)
 
-
 	def main(self):
+
 		# get the arguments from the terminal
 		args = self.get_arguments()
 
@@ -465,7 +454,6 @@ class Collect():
 
 		# identify the event type needed by the user and then go forward
 		self.identify_event(args)
-		#self.collect_event(args)
 
 # Initialize the class
 collect = Collect()
