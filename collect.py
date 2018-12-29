@@ -5,6 +5,7 @@ import sys
 import os
 import time
 import random
+import math
 
 
 class Collect():
@@ -105,16 +106,19 @@ class Collect():
 
 	def identify_event(self,args):
 		"""identify the type of event given by the user"""
+
 		if(args.event_type == 'issues'):
 			self.collect_issues(args)
-		if(args.event_type == 'issues_comments'):
+		if(args.event_type == 'issueComments'):
 			self.collect_issues_comments(args)
-		if (args.event_type == 'issues_events'):
+		if (args.event_type == 'issueEvents'):
 			self.collect_issues_events(args)
 		if (args.event_type == 'commits'):
 			self.collect_commits(args)
 		if (args.event_type == 'events'):
 			self.collect_events(args)
+		if (args.event_type == 'commitComments'):
+			self.collect_commitsComments(args)
 		if(args.event_type == 'pullRequests'):
 			self.collect_pullRequests(args)
 		if (args.event_type == 'pullRequestComments'):
@@ -131,7 +135,7 @@ class Collect():
 		return repo_list
     
 	def get_branch(self, repo_name, args):
-		branch_list =[]
+		branch_list = []
 		if(args.branch == 'all'):
 			branch_list = [branch.name for branch in self.organization.get_repo(repo_name).get_branches()]
 
@@ -142,35 +146,55 @@ class Collect():
 
 	def collect_issues_events(self, args):
 		repo_list = self.get_repo(args)
-		print(repo_list)
+		print("\nRepositories:\n ", repo_list)
 		try:
 			for repo_name in repo_list:
+				print("\n\t" + repo_name + " Repository")
 				repo = self.organization.get_repo(repo_name)
-				issues_events_list = []
+
+				totalIssueEvents = repo.get_issues_events().totalCount
+				print("total number of issue events in ", repo_name, "is", totalIssueEvents)
+
+				totalPage = totalIssueEvents / args.per_page
+				if totalPage is not int:
+					totalPage = math.ceil(totalPage)
+				print("total number of page with per_page ", self.per_page, " is ", totalPage)
+
+				page = 0
 				num_of_issues_events = 0
-				for event in repo.get_issues_events():
-					event_dict = {}
-					event_dict['actor'] = event.actor
-					event_dict['commit_id'] = event.commit_id
-					event_dict['created_at'] = event.created_at
-					event_dict['event'] = event.event
-					event_dict['id'] = event.id
-					event_dict['issue'] = event.issue
-					event_dict['url'] = event.url
-					event_dict['node_id'] = event.node_id
-					event_dict['commit_url'] = event.commit_url
-					event_dict['label'] = event.label
-					event_dict['assignee'] = event.assignee
-					issues_events_list.append(event_dict)
 
-					num_of_issues_events += 1
-					print(num_of_issues_events)
+				while page < totalPage:
+					issues_events_list = []
+					print("\n\tpage: ", page)
+					for event in repo.get_issues_events().get_page(page):
+						event_dict = {}
+						event_dict['actor'] = event.actor
+						event_dict['commit_id'] = event.commit_id
+						event_dict['created_at'] = event.created_at
+						event_dict['event'] = event.event
+						event_dict['id'] = event.id
+						event_dict['issue'] = event.issue
+						event_dict['url'] = event.url
+						event_dict['node_id'] = event.node_id
+						event_dict['commit_url'] = event.commit_url
+						event_dict['label'] = event.label
+						event_dict['assignee'] = event.assignee
+						issues_events_list.append(event_dict)
 
-				self.sleeper()
-				print(issues_events_list)
-				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-                          args.event_type + ".json", 'w') as f:
-						f.write(str(issues_events_list))
+						num_of_issues_events += 1
+						print(num_of_issues_events)
+
+
+
+					self.sleeper()
+					with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+							  args.event_type + "-page-" + str(page) + ".json", 'w') as f:
+							f.write(str(issues_events_list))
+
+					print("page ", page, " added to file")
+					page += 1
+
+
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
@@ -178,53 +202,63 @@ class Collect():
 	def collect_pullRequests(self, args):
 		# call a get_repo function
 		repo_list = self.get_repo(args)
-		print(repo_list)
+		print("\n\tRepositories\n", repo_list)
 		try:
 			for repo_name in repo_list:
+				print("\n", repo_name, " Repository")
 				repo = self.organization.get_repo(repo_name)
 				branch_list = self.get_branch(repo_name, args)
 				print("branches: ", branch_list)
 				for branch in branch_list:
-				    pull_list = []
-				    num_of_pulls = 0
-				    for pull in repo.get_pulls(state=args.state, sort='created', base=branch):
-					    pull_dict = {}
-					    pull_dict['id'] = pull.id
-					    pull_dict['number'] = pull.number
-					    pull_dict['title'] = pull.title
-					    pull_dict['user'] = pull.user
-					    pull_dict['body'] = pull.body
-					    pull_dict['changed_files'] = pull.changed_files
-					    pull_dict['closed_at'] = pull.closed_at
-					    pull_dict['comments'] = pull.comments
-					    pull_dict['commits'] = pull.commits
-					    pull_dict['created_at'] = pull.created_at
-					    pull_dict['commits_url'] = pull.commits_url
-					    pull_dict['review_comments'] = pull.review_comments
-					    pull_dict['head'] = pull.head
-					    pull_dict['merged'] = pull.merged
-					    pull_dict['merged_at'] = pull.merged_at
-					    pull_dict['merged_by'] = pull.merged_by
-					    pull_dict['milestone'] = pull.milestone
-					    pull_dict['merge_commit_sha'] = pull.merge_commit_sha
-					    pull_dict['mergeable'] = pull.mergeable
-					    pull_dict['mergeable_state'] = pull.mergeable_state
-					    pull_dict['labels'] = pull.labels
-					    pull_dict['deletions'] = pull.deletions
-					    pull_dict['additions'] = pull.additions
-					    pull_dict['commit_url'] = pull.commits_url
-					    pull_dict['assignee'] = pull.assignee
-					    pull_dict['assignees'] = pull.assignees
-					    pull_dict['base'] = pull.base
-					    pull_list.append(pull_dict)
-					    num_of_pulls += 1
-					    print(num_of_pulls)
 
-				    self.sleeper()
-				    print(pull_list)
-				    with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						        branch + "-" + args.state + "-" + args.event_type + ".json", 'w') as f:
-					      f.write(str(pull_list))
+				    total_pulls = repo.get_pulls(state=args.state, sort='created', base=branch).totalCount
+				    print("total number of pulls in ", repo_name, " of branch ", branch, " is ", total_pulls)
+
+				    total_page = total_pulls / args.per_page
+				    if total_page is not int:total_page = math.ceil(total_page)
+				    print("The total number of page is ", total_page)
+				    page = 0
+				    num_of_pulls = 0
+				    while page < total_page:
+				    	print("\n\tPage: ", page)
+				    	pull_list=[]
+				    	for pull in repo.get_pulls(state=args.state, sort='created', base=branch).get_page(page):
+				    		pull_dict = {}
+				    		pull_dict['id'] = pull.id
+				    		pull_dict['number'] = pull.number
+				    		pull_dict['title'] = pull.title
+				    		pull_dict['user'] = pull.user
+				    		pull_dict['body'] = pull.body
+				    		pull_dict['changed_files'] = pull.changed_files
+				    		pull_dict['closed_at'] = pull.closed_at
+				    		pull_dict['comments'] = pull.comments
+				    		pull_dict['commits'] = pull.commits
+				    		pull_dict['created_at'] = pull.created_at
+				    		pull_dict['commits_url'] = pull.commits_url
+				    		pull_dict['review_comments'] = pull.review_comments
+				    		pull_dict['head'] = pull.head
+				    		pull_dict['merged'] = pull.merged
+				    		pull_dict['merged_at'] = pull.merged_at
+				    		pull_dict['merged_by'] = pull.merged_by
+				    		pull_dict['milestone'] = pull.milestone
+				    		pull_dict['merge_commit_sha'] = pull.merge_commit_sha
+				    		pull_dict['mergeable'] = pull.mergeable
+				    		pull_dict['mergeable_state'] = pull.mergeable_state
+				    		pull_dict['labels'] = pull.labels
+				    		pull_dict['deletions'] = pull.deletions
+				    		pull_dict['additions'] = pull.additions
+				    		pull_dict['commit_url'] = pull.commits_url
+				    		pull_dict['assignee'] = pull.assignee
+				    		pull_dict['assignees'] = pull.assignees
+				    		pull_dict['base'] = pull.base
+				    		pull_list.append(pull_dict)
+				    		num_of_pulls += 1
+				    		print("pull", num_of_pulls)
+				    	with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+								  branch + "-" + args.state + "-" + args.event_type + ".json", 'w') as f:
+				    		f.write(str(pull_list))
+				    	self.sleeper()
+				    	page += 1
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
@@ -232,12 +266,14 @@ class Collect():
 	def collect_pullRequestComments(self,args):
 	# call a get_repo function
 		repo_list = self.get_repo(args)
-		print(repo_list)
+		print("\n\tRepositories\n", repo_list)
 		try:
 			for repo_name in repo_list:
+				print("\n", repo_name, "Repository")
 				repo = self.organization.get_repo(repo_name)
 				pull_list = []
 				num_of_pulls = 0
+				print("total pull Request comments in ", repo_name, " is: ", repo.get_pulls_comments().totalCount)
 				for pull in repo.get_pulls_comments():
 				    pull_dict = {}
 				    pull_dict['id'] = pull.id
@@ -248,16 +284,22 @@ class Collect():
 				    pull_dict['created_at'] = pull.created_at
 				    pull_dict['diff_hunk'] = pull.diff_hunk
 				    pull_dict['in_reply_to_id'] = pull.in_reply_to_id
+				    pull_dict['original_commit_id'] = pull.original_commit_id
+				    pull_dict['original_position'] = pull.original_position
+				    pull_dict['path'] = pull.path
+				    pull_dict['url'] = pull.url
+				    pull_dict['updated_at'] = pull.updated_at
 				    pull_dict['pull_request_url'] = pull.pull_request_url
 
 				    pull_list.append(pull_dict)
 				    num_of_pulls += 1
-				    print(num_of_pulls)
-				# finalissue = "\n".join(str(row) for row in issue_list)
+				    print("pull", num_of_pulls)
+
 				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
 				          args.event_type + ".json", 'w') as f:
 					f.write(str(pull_list))
-				print("data successfully collected")
+
+			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
 
@@ -265,9 +307,10 @@ class Collect():
 		"""collect the data of the issue event in a given repository may be all repository or one repository"""
 		# call a get_repo function
 		repo_list = self.get_repo(args)
-		print("\nRepositories: ", repo_list)
+		print("\n\tRepositories:\n ", repo_list)
 		try:
 			for repo_name in repo_list:
+				print(repo_name, "Repository")
 				repo = self.organization.get_repo(repo_name)
 				branch_list = self.get_branch(repo_name, args)
 				print("branches: ", branch_list)
@@ -277,55 +320,96 @@ class Collect():
 					branch_commit = git_branch.commit
 	
 					total_commits = repo.get_commits(sha=branch_commit.sha).totalCount
-					print("total commits in ",branch," branch is: ", total_commits)
+					print("total number of commits in ",repo_name," of branch ", branch, " is: ", total_commits)
 
 					# since there are 100 commits in a single page we can easily get the total number of page by dividing the total commits with 100
-					total_page =  int(total_commits / 100)
+					total_page =  int(total_commits / args.per_page)
+					if total_page is not int:
+						total_page = math.ceil(total_page)
 					print("The total number of page is: " + str(total_page))
 
 					#print(repo.get_commits().get_page(rel='last'))
 					page = 0
 					num_of_commits = 0
-					while page <= 5:#just for testing but actually its till last page
+					while page < total_page:#just for testing but actually its till last page
 						commit_list = []
-						print("page: ", page)
+						print("\n\tpage: ", page)
 						
 						for commit in repo.get_commits(sha=branch_commit.sha).get_page(page):
 							commit_dict = {}
 							commit_dict['author'] = commit.author
 							commit_dict['sha'] = commit.sha
-							#commit_dict['files'] = commit.files
-							#commit_dict['stats'] = commit.stats
-							# commit_dict['commit'] = commit.commit
-							# commit_dict['committer'] = commit.committer
-							# commit_dict['comments_url'] = commit.comments_url
-							# commit_dict['html_url'] = commit.html_url
-							# commit_dict['parents'] = commit.parents
-							# commit_dict['url'] = commit.url
+							commit_dict['files'] = commit.files
+							commit_dict['stats'] = commit.stats
+							commit_dict['commit'] = commit.commit
+							commit_dict['committer'] = commit.committer
+							commit_dict['comments_url'] = commit.comments_url
+							commit_dict['html_url'] = commit.html_url
+							commit_dict['parents'] = commit.parents
+							commit_dict['url'] = commit.url
 							commit_list.append(commit_dict)
 
 							num_of_commits += 1
-							print(num_of_commits)
+							print("commit", num_of_commits)
 
-                        
+
 
 						self.sleeper()
-						print(commit_list)
+						#print(commit_list)
 						with open(args.org + "/" + repo_name+"/"+args.event_type+"/"+branch+"_branch/" +  args.org + "-" +
 					 		repo_name + "-"+branch+"_branch-" + args.event_type + "-page-" + str(page) + ".json", 'w') as f:
 							f.write(str(commit_list))
 
 
 						page += 1
-						commit_list = []
+
 			print("commit data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
 
-	def collect_commits_comments(self, args):
-		pass
+	def collect_commitsComments(self, args):
+		# call a get_repo function
+		repo_list = self.get_repo(args)
+		print("\n\tRepositories\n", repo_list)
+		try:
+			for repo_name in repo_list:
+				print(repo_name, " Repository")
+				repo = self.organization.get_repo(repo_name)
+
+				comment_list = []
+				num_of_comment = 0
+				print("total number of commits comments in ", repo_name, " is: ", repo.get_comments().totalCount)
+				for comment in repo.get_comments():
+					comment_dict = {}
+					comment_dict['id'] = comment.id
+					comment_dict['user'] = comment.user
+					comment_dict['commit_id'] = comment.commit_id
+					comment_dict['body'] = comment.body
+					comment_dict['url'] = comment.url
+					comment_dict['position'] = comment.position
+					comment_dict['path'] = comment.path
+					comment_dict['line'] = comment.line
+					comment_dict['created_at'] = comment.created_at
+					comment_dict['updated_at'] = comment.updated_at
+					comment_dict['html_url'] = comment.html_url
+
+					comment_list.append(comment_dict)
+
+					num_of_comment += 1
+					print("comment: ", num_of_comment)
+
+				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+						   args.event_type + ".json", 'w') as f:
+					f.write(str(comment_list))
+
+				self.sleeper()
+
+			print("data successfully collected")
+		except Exception as e:
+			print("Problem Occured: ", e)
 
 	def collect_events(self, args):
+
 		# call a get_repo function
 		repo_list = self.get_repo(args)
 		print(repo_list)
@@ -371,10 +455,15 @@ class Collect():
 					comment_dict['user'] = comment.user
 					comment_dict['body'] = comment.body
 					comment_dict['issue_url'] = comment.issue_url
+					comment_dict['created_at'] = comment.created_at
+					comment_dict['updated_at'] = comment.updated_at
+					comment_dict['url'] = comment.url
+					comment_dict['html_url'] = comment.html_url
+
 					issue_comment_list.append(comment_dict)
 
 					num_of_issue_comments += 1
-					print(num_of_issue_comments)
+					print("comment", num_of_issue_comments)
 
 				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
 						  args.event_type + ".json", 'w') as f:
@@ -388,7 +477,7 @@ class Collect():
 		"""collect the data of the issue event in a given repository may be all repository or one repository"""
 		# call a get_repo function
 		repo_list = self.get_repo(args)
-		print(repo_list)
+		print("\n\tRepositories\n", repo_list)
 		try:
 			for repo_name in repo_list:
 				repo = self.organization.get_repo(repo_name)
@@ -414,14 +503,18 @@ class Collect():
 					issue_dict['pull_request'] = issue.pull_request
 					issue_dict['state'] = issue.state
 					issue_dict['events_url'] = issue.events_url
+					issue_dict['comments'] = issue.comments
 					issue_dict['number_of_comments'] = issue.comments
 					issue_dict['comments_url'] = issue.comments_url
+					issue_dict['assignee'] = issue.assignee
+					issue_dict['assignees'] = issue.assignees
+					issue_dict['html_url'] = issue.html_url
+
 					issue_list.append(issue_dict)
 
 					num_of_issue += 1
 					print(args.state + "issue: ", num_of_issue)
 
-				# finalissue = "\n".join(str(row) for row in issue_list)
 				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
 						  args.state + "-" + args.event_type + ".json", 'w') as f:
 					f.write(str(issue_list))
