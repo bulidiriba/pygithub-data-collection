@@ -7,7 +7,6 @@ import time
 import random
 import math
 
-
 class Collect():
 	def __init__(self):
 		self.user=''
@@ -106,7 +105,6 @@ class Collect():
 
 	def identify_event(self,args):
 		"""identify the type of event given by the user"""
-
 		if(args.event_type == 'issues'):
 			self.collect_issues(args)
 		if(args.event_type == 'issueComments'):
@@ -184,14 +182,12 @@ class Collect():
 						num_of_issues_events += 1
 						print(num_of_issues_events)
 
-
-
-					self.sleeper()
 					with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
 							  args.event_type + "-page-" + str(page) + ".json", 'w') as f:
 							f.write(str(issues_events_list))
 
 					print("page ", page, " added to file")
+					self.sleeper()
 					page += 1
 
 
@@ -253,7 +249,7 @@ class Collect():
 				    		pull_dict['base'] = pull.base
 				    		pull_list.append(pull_dict)
 				    		num_of_pulls += 1
-				    		print("pull", num_of_pulls)
+				    		print(num_of_pulls)
 				    	with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
 								  branch + "-" + args.state + "-" + args.event_type + ".json", 'w') as f:
 				    		f.write(str(pull_list))
@@ -293,7 +289,7 @@ class Collect():
 
 				    pull_list.append(pull_dict)
 				    num_of_pulls += 1
-				    print("pull", num_of_pulls)
+				    print(num_of_pulls)
 
 				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
 				          args.event_type + ".json", 'w') as f:
@@ -304,6 +300,8 @@ class Collect():
 			print("Problem Occured: ", e)
 
 	def collect_commits(self, args):
+
+
 		"""collect the data of the issue event in a given repository may be all repository or one repository"""
 		# call a get_repo function
 		repo_list = self.get_repo(args)
@@ -323,7 +321,7 @@ class Collect():
 					print("total number of commits in ",repo_name," of branch ", branch, " is: ", total_commits)
 
 					# since there are 100 commits in a single page we can easily get the total number of page by dividing the total commits with 100
-					total_page =  int(total_commits / args.per_page)
+					total_page =  total_commits / args.per_page
 					if total_page is not int:
 						total_page = math.ceil(total_page)
 					print("The total number of page is: " + str(total_page))
@@ -350,17 +348,14 @@ class Collect():
 							commit_list.append(commit_dict)
 
 							num_of_commits += 1
-							print("commit", num_of_commits)
+							print(num_of_commits)
 
-
-
-						self.sleeper()
-						#print(commit_list)
 						with open(args.org + "/" + repo_name+"/"+args.event_type+"/"+branch+"_branch/" +  args.org + "-" +
 					 		repo_name + "-"+branch+"_branch-" + args.event_type + "-page-" + str(page) + ".json", 'w') as f:
 							f.write(str(commit_list))
 
-
+						print("page ", page, " added to file")
+						self.sleeper()
 						page += 1
 
 			print("commit data successfully collected")
@@ -373,36 +368,49 @@ class Collect():
 		print("\n\tRepositories\n", repo_list)
 		try:
 			for repo_name in repo_list:
-				print(repo_name, " Repository")
+				print("\n\t" + repo_name + " Repository")
 				repo = self.organization.get_repo(repo_name)
 
-				comment_list = []
-				num_of_comment = 0
-				print("total number of commits comments in ", repo_name, " is: ", repo.get_comments().totalCount)
-				for comment in repo.get_comments():
-					comment_dict = {}
-					comment_dict['id'] = comment.id
-					comment_dict['user'] = comment.user
-					comment_dict['commit_id'] = comment.commit_id
-					comment_dict['body'] = comment.body
-					comment_dict['url'] = comment.url
-					comment_dict['position'] = comment.position
-					comment_dict['path'] = comment.path
-					comment_dict['line'] = comment.line
-					comment_dict['created_at'] = comment.created_at
-					comment_dict['updated_at'] = comment.updated_at
-					comment_dict['html_url'] = comment.html_url
+				totalCommitComments = repo.get_comments().totalCount
+				print("total number of commit comments in ", repo_name, " Repository is", totalCommitComments)
 
-					comment_list.append(comment_dict)
+				totalPage = totalCommitComments / args.per_page
+				if totalPage is not int:
+					totalPage = math.ceil(totalPage)
+				print("total number of page with per_page ", self.per_page, " is ", totalPage)
 
-					num_of_comment += 1
-					print("comment: ", num_of_comment)
+				page = 0
+				num_of_comments = 0
 
-				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						   args.event_type + ".json", 'w') as f:
-					f.write(str(comment_list))
+				while page < totalPage:
+					comment_list = []
+					print("\n\tpage: ", page)
+					for comment in repo.get_comments():
+						comment_dict = {}
+						comment_dict['id'] = comment.id
+						comment_dict['user'] = comment.user
+						comment_dict['commit_id'] = comment.commit_id
+						comment_dict['body'] = comment.body
+						comment_dict['url'] = comment.url
+						comment_dict['position'] = comment.position
+						comment_dict['path'] = comment.path
+						comment_dict['line'] = comment.line
+						comment_dict['created_at'] = comment.created_at
+						comment_dict['updated_at'] = comment.updated_at
+						comment_dict['html_url'] = comment.html_url
 
-				self.sleeper()
+						comment_list.append(comment_dict)
+
+						num_of_comments += 1
+						print(num_of_comments)
+
+					with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+							   args.event_type + "-page-" + str(page) + ".json", 'w') as f:
+						f.write(str(comment_list))
+
+					print("page ", page, " added to file")
+					self.sleeper()
+					page += 1
 
 			print("data successfully collected")
 		except Exception as e:
@@ -412,62 +420,97 @@ class Collect():
 
 		# call a get_repo function
 		repo_list = self.get_repo(args)
-		print(repo_list)
+		print("\n\tRepositories\n", repo_list)
 		try:
 			for repo_name in repo_list:
 				repo = self.organization.get_repo(repo_name)
-				event_list = []
+				total_events = repo.get_events().totalCount
+				print("total number of Events in ", repo_name , " Repository is ", total_events)
+
+				total_page = total_events / args.per_page
+				if total_page is not int:
+					total_page = math.ceil(total_page)
+				print("The total number of page is: " + str(total_page))
+
+				page = 0
 				num_of_events = 0
-				for event in repo.get_events():
-					event_dict = {}
-					event_dict['actor'] = event.actor
-					event_dict['id'] = event.id
-					event_dict['payload'] = event.id
-					event_dict['created_at'] = event.created_at
-					event_dict['org'] = event.org
-					event_dict['public'] = event.public
-					event_dict['repo'] = event.repo
-					event_dict['type'] = event.type
-					event_list.append(event_dict)
+				while page < total_page:
+					event_list = []
+					print("\n\tpage: ", page)
+					for event in repo.get_events().get_page(page):
+						event_dict = {}
+						event_dict['actor'] = event.actor
+						event_dict['id'] = event.id
+						event_dict['payload'] = event.id
+						event_dict['created_at'] = event.created_at
+						event_dict['org'] = event.org
+						event_dict['public'] = event.public
+						event_dict['repo'] = event.repo
+						event_dict['type'] = event.type
+						event_list.append(event_dict)
 
-					num_of_events += 1
-					print(num_of_events)
+						num_of_events += 1
+						print(num_of_events)
 
-				# finalissue = "\n".join(str(row) for row in issue_list)
-				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						  args.event_type + ".json", 'w') as f:
-					f.write(str(event_list))
+
+
+					with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+							  args.event_type + "-page-" + str(page) +  ".json", 'w') as f:
+						f.write(str(event_list))
+
+					print("page ", page, " added to file")
+					self.sleeper()
+					page += 1
+
 			print("data successfully collected")
 		except Exception as e:
 			print("Problem Occured: ", e)
 
 	def collect_issues_comments(self, args):
 		repo_list = self.get_repo(args)
-		print(repo_list)
+		print("\nRepositories:\n ", repo_list)
 		try:
 			for repo_name in repo_list:
+				print("\n\t" + repo_name + " Repository")
 				repo = self.organization.get_repo(repo_name)
-				issue_comment_list = []
+
+				totalIssueComments = repo.get_issues_comments().totalCount
+				print("total number of issue comments in ", repo_name, " Repository is", totalIssueComments)
+
+				totalPage = totalIssueComments / args.per_page
+				if totalPage is not int:
+					totalPage = math.ceil(totalPage)
+				print("total number of page with per_page ", self.per_page, " is ", totalPage)
+
+				page = 0
 				num_of_issue_comments = 0
-				for comment in repo.get_issues_comments():
-					comment_dict = {}
-					comment_dict['id'] = comment.id
-					comment_dict['user'] = comment.user
-					comment_dict['body'] = comment.body
-					comment_dict['issue_url'] = comment.issue_url
-					comment_dict['created_at'] = comment.created_at
-					comment_dict['updated_at'] = comment.updated_at
-					comment_dict['url'] = comment.url
-					comment_dict['html_url'] = comment.html_url
 
-					issue_comment_list.append(comment_dict)
+				while page < totalPage:
+					issue_comment_list = []
+					print("\n\tpage: ", page)
+					for comment in repo.get_issues_comments().get_page(page):
+						comment_dict = {}
+						comment_dict['id'] = comment.id
+						comment_dict['user'] = comment.user
+						comment_dict['body'] = comment.body
+						comment_dict['issue_url'] = comment.issue_url
+						comment_dict['created_at'] = comment.created_at
+						comment_dict['updated_at'] = comment.updated_at
+						comment_dict['url'] = comment.url
+						comment_dict['html_url'] = comment.html_url
 
-					num_of_issue_comments += 1
-					print("comment", num_of_issue_comments)
+						issue_comment_list.append(comment_dict)
 
-				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						  args.event_type + ".json", 'w') as f:
-					f.write(str(issue_comment_list))
+						num_of_issue_comments += 1
+						print(num_of_issue_comments)
+
+					with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+							  args.event_type + "-page-" + str(page) + ".json", 'w') as f:
+						f.write(str(issue_comment_list))
+
+					print("page ", page, " added to file")
+					self.sleeper()
+					page += 1
 
 			print("data successfully collected")
 		except Exception as e:
@@ -480,46 +523,61 @@ class Collect():
 		print("\n\tRepositories\n", repo_list)
 		try:
 			for repo_name in repo_list:
+				print("\n\t" + repo_name + " Repository")
 				repo = self.organization.get_repo(repo_name)
 
-				issue_list = []
+				totalIssues = repo.get_issues(state=args.state).totalCount
+				print("total number of " + args.state + " issues in " + repo_name + " Repository is: " , totalIssues)
+
+				totalPage = totalIssues / args.per_page
+				if totalPage is not int:
+					totalPage = math.ceil(totalPage)
+				print("total number of page with per_page ", self.per_page, " is ", totalPage)
+
+				page = 0
 				num_of_issue = 0
-				print("total number of " + args.state + " issue is: ", repo.get_issues(state=args.state).totalCount)
-				for issue in repo.get_issues(state=args.state):
-					issue_dict = {}
-					issue_dict['number'] = issue.number
-					issue_dict['id'] = issue.id
-					issue_dict['user'] = issue.user
-					issue_dict['title'] = issue.title
-					issue_dict['body'] = issue.body
-					issue_dict['url'] = issue.url
-					issue_dict['milestone'] = issue.milestone
-					issue_dict['labels'] = issue.labels
-					issue_dict['labels_url'] = issue.labels_url
-					issue_dict['created_at'] = issue.created_at
-					issue_dict['updated_at'] = issue.updated_at
-					issue_dict['closed_at'] = issue.closed_at
-					issue_dict['closed_by'] = issue.closed_by
-					issue_dict['pull_request'] = issue.pull_request
-					issue_dict['state'] = issue.state
-					issue_dict['events_url'] = issue.events_url
-					issue_dict['comments'] = issue.comments
-					issue_dict['number_of_comments'] = issue.comments
-					issue_dict['comments_url'] = issue.comments_url
-					issue_dict['assignee'] = issue.assignee
-					issue_dict['assignees'] = issue.assignees
-					issue_dict['html_url'] = issue.html_url
 
-					issue_list.append(issue_dict)
+				while page < totalPage:
+					issue_comment_list = []
+					print("\n\tpage: ", page)
+					issue_list = []
+					for issue in repo.get_issues(state=args.state).get_page(page):
+						issue_dict = {}
+						issue_dict['number'] = issue.number
+						issue_dict['id'] = issue.id
+						issue_dict['user'] = issue.user
+						issue_dict['title'] = issue.title
+						issue_dict['body'] = issue.body
+						issue_dict['url'] = issue.url
+						issue_dict['milestone'] = issue.milestone
+						issue_dict['labels'] = issue.labels
+						issue_dict['labels_url'] = issue.labels_url
+						issue_dict['created_at'] = issue.created_at
+						issue_dict['updated_at'] = issue.updated_at
+						issue_dict['closed_at'] = issue.closed_at
+						issue_dict['closed_by'] = issue.closed_by
+						issue_dict['pull_request'] = issue.pull_request
+						issue_dict['state'] = issue.state
+						issue_dict['events_url'] = issue.events_url
+						issue_dict['comments'] = issue.comments
+						issue_dict['number_of_comments'] = issue.comments
+						issue_dict['comments_url'] = issue.comments_url
+						issue_dict['assignee'] = issue.assignee
+						issue_dict['assignees'] = issue.assignees
+						issue_dict['html_url'] = issue.html_url
 
-					num_of_issue += 1
-					print(args.state + "issue: ", num_of_issue)
+						issue_list.append(issue_dict)
 
-				with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
-						  args.state + "-" + args.event_type + ".json", 'w') as f:
-					f.write(str(issue_list))
+						num_of_issue += 1
+						print(num_of_issue)
 
-				self.sleeper()
+					with open(args.org + "/" + repo_name + "/" + args.event_type + "/" + args.org + "-" + repo_name + "-" +
+							  args.state + "-" + args.event_type + "-page-" + str(page) + ".json", 'w') as f:
+						f.write(str(issue_list))
+
+					print("page ", page, " added to file")
+					self.sleeper()
+					page += 1
 
 			print("data successfully collected")
 		except Exception as e:
